@@ -6,3 +6,15 @@ class Table:
         self.database = keyspace.database
         self.keyspace = keyspace
         self.name = name
+
+    def create(self):
+        pass
+
+    def drop(self):
+        pass
+    
+    def rows(self):
+        pass
+
+    def rows_per_partition(part_key: list):
+        pass
