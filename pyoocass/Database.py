@@ -87,9 +87,11 @@ class Database:
     ) -> bool:
         try:
             self.session = self.cluster.connect()
-        except:
+            if self.session is not None:
+                return True
+        except Exception as e:
+            print(e)
             return False
-        return True
 
 
     def disconnect(self) -> bool:
@@ -98,9 +100,19 @@ class Database:
     def execute(
         self,
         query: str, 
-        consistency_level: str
+        consistency_level = ConsistencyLevel.LOCAL_QUORUM
     ) -> dict:
-        pass
+        resultset = self.session.execute(query)
+        result_dict = {
+            "action": query.split(" ")[0],
+            "rows": []
+        }
+        for row in resultset:
+            row_dict = {}
+            for i in range(len(resultset.column_names)):
+                row_dict[resultset.column_names[i]] = row[i]
+            result_dict["rows"].append(row_dict)
+        return result_dict
 
     def get_keyspaces(self):
         pass
