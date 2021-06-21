@@ -1,9 +1,13 @@
+from os import name
 import cassandra
 from cassandra import ConsistencyLevel
+from cassandra import query
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT, Session
 from cassandra.policies import DCAwareRoundRobinPolicy, RetryPolicy
 from cassandra.query import tuple_factory, BatchStatement, BatchType
+import json
+import logging
 from ssl import SSLContext, PROTOCOL_TLSv1_2 , CERT_REQUIRED
 
 
@@ -37,12 +41,15 @@ class CustomRetryPolicy(RetryPolicy):
             return self.RETHROW, None 
 
 class Database:
+    # Setup logging
+    logger = logging.getLogger(name="Database")
     # Attributes
     nodes: list
     user: str
     password: str
     cluster: Cluster
-    session = Session
+    session: Session
+
     # Instance Constructor
     def __init__(
         self,
@@ -51,9 +58,14 @@ class Database:
         password: str,
         port: 9042,
         cert = None,
-        retries = 5
+        retries = 5,
+        log_level = logging.WARNING
     ) -> None:
         # Initialize Attributes
+        self.nodes = nodes
+        self.user = user
+        self.password = password
+        self.port = port
         self.session = None
         # If SSL context is needed
         if cert is not None:
@@ -82,15 +94,46 @@ class Database:
         )
         pass
 
+    def __str__(self):
+        json_data = {
+            "nodes": self.nodes,
+            "port": self.port,
+            "user": self.user,
+            "session": None
+        }
+        if self.session is not None:
+            json_data["session"] = self.session
+            json_data["name"] = self.name
+            json_data["cql_version"] = self.cql_version
+            json_data["release_version"] = self.release_version
+            json_data["datacenter"] = self.datacenter
+            json_data["rack"] = self.rack
+            json_data["native_protocol_version"] = self.native_protocol_version
+        return(json_data)
+
     def connect(
         self
     ) -> bool:
+        # Setup logging
+        logger = logging.getLogger(name="Database::connect")
+        logger.setLevel(logging.DEBUG)
         try:
+            logger.debug("Entering try-except block")
             self.session = self.cluster.connect()
+            logger.debug(f"Session after connecting: {self.session}")
             if self.session is not None:
+                logger.debug("Session is not None")
+                result = self.execute(query="SELECT * FROM system.local",consistency_level=ConsistencyLevel.LOCAL_ONE)
+                logger.debug(result)
+                self.name = result["cluster_name"]
+                self.cql_version = result["cql_version"]
+                self.release_version = result["release_version"]
+                self.datacenter = result["datacenter"]
+                self.rack = result["rack"]
+                self.native_protocol_version = result["native_protocol_version"]
                 return True
         except Exception as e:
-            print(e)
+            logger.debug(f"Catched exception: {e}")
             return False
 
 
