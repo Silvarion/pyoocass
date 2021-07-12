@@ -5,7 +5,15 @@ from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT, S
 from cassandra.policies import DCAwareRoundRobinPolicy, RetryPolicy
 from cassandra.query import tuple_factory, BatchStatement, BatchType
 from ssl import SSLContext, PROTOCOL_TLSv1_2 , CERT_REQUIRED
+import logging
+import sys
 
+### Setup Logging ###
+logger = logging.getLogger("pyoocass-Database")
+log_formatter = logging.Formatter('[%(asctime)s][%(funcName)-25s][%(lineno)-3d][%(levelname)-8s] %(message)s')
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(log_formatter)
+logger.addHandler(console_handler)
 
 ## Utility Classes & Functions
 class CustomRetryPolicy(RetryPolicy):
@@ -87,20 +95,35 @@ class Database:
     ) -> bool:
         try:
             self.session = self.cluster.connect()
-        except:
+            if self.session is not None:
+                return True
+        except Exception as e:
+            print(e)
             return False
-        return True
-
 
     def disconnect(self) -> bool:
         self.cluster.shutdown()
+        self.session = None
 
     def execute(
         self,
         query: str, 
-        consistency_level: str
+        consistency_level = ConsistencyLevel.LOCAL_QUORUM
     ) -> dict:
-        pass
+        result_dict = {
+            "action": query.split(" ")[0],
+            "rows": []
+        }
+        try:
+            resultset = self.session.execute(query)
+            for row in resultset:
+                row_dict = {}
+                for i in range(len(resultset.column_names)):
+                    row_dict[resultset.column_names[i]] = row[i]
+                result_dict["rows"].append(row_dict)
+        except Exception as e:
+            logger.error(e)
+        return result_dict
 
     def get_keyspaces(self):
         pass
