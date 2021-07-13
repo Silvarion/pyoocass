@@ -50,15 +50,17 @@ class Database:
     user: str
     password: str
     cluster: Cluster
-    session = Session
+    session: Session
+    auth_provider = None
     # Instance Constructor
     def __init__(
         self,
         nodes: list,
-        user: str,
-        password: str,
-        port: 9042,
+        port: int = 9042,
+        user: str = "",
+        password: str = "",
         cert = None,
+        auth_provider = None,
         retries = 5
     ) -> None:
         # Initialize Attributes
@@ -70,7 +72,14 @@ class Database:
             self.ssl_context.verify_mode = CERT_REQUIRED
         else: 
             self.ssl_context = None
-        self.auth_provider = PlainTextAuthProvider(username=user, password=password)
+        # Check if user/password pair or auth_provider was given as parameters
+        if auth_provider is None:
+            if user is not None and password is not None:
+                self.auth_provider = PlainTextAuthProvider(username=user, password=password)
+            else:
+                logger.fatal("You must provide either a user/password pair or an auth_provider object")
+        else:
+            self.auth_provider = auth_provider
         # define execution profile for the cluster/session
         profile = ExecutionProfile(
             load_balancing_policy=DCAwareRoundRobinPolicy(),
