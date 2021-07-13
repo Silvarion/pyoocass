@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pyoocass", 
-    version="0.0.2",
+    version="0.0.3",
     author="Jesus Alejandro Sanchez Davila",
     author_email="jsanchez.consultant@gmail.com",
     description="Python Object-Orinted Cassandra interface",
@@ -21,7 +21,7 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=[
         'cassandra-driver',
-        'time_uuid',
-        'uuid'
+        'cassandra-sigv4',
+        'time_uuid'
     ]
 )
