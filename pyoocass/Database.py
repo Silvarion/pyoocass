@@ -9,7 +9,15 @@ from cassandra.query import tuple_factory, BatchStatement, BatchType
 import json
 import logging
 from ssl import SSLContext, PROTOCOL_TLSv1_2 , CERT_REQUIRED
+import logging
+import sys
 
+### Setup Logging ###
+logger = logging.getLogger("pyoocass-Database")
+log_formatter = logging.Formatter('[%(asctime)s][%(funcName)-25s][%(lineno)-3d][%(levelname)-8s] %(message)s')
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(log_formatter)
+logger.addHandler(console_handler)
 
 ## Utility Classes & Functions
 class CustomRetryPolicy(RetryPolicy):
@@ -49,17 +57,17 @@ class Database:
     password: str
     cluster: Cluster
     session: Session
-
+    auth_provider = None
     # Instance Constructor
     def __init__(
         self,
         nodes: list,
-        user: str,
-        password: str,
-        port: 9042,
+        port: int = 9042,
+        user: str = "",
+        password: str = "",
         cert = None,
-        retries = 5,
-        log_level = logging.WARNING
+        auth_provider = None,
+        retries = 5
     ) -> None:
         # Initialize Attributes
         self.nodes = nodes
@@ -74,7 +82,14 @@ class Database:
             self.ssl_context.verify_mode = CERT_REQUIRED
         else: 
             self.ssl_context = None
-        self.auth_provider = PlainTextAuthProvider(username=user, password=password)
+        # Check if user/password pair or auth_provider was given as parameters
+        if auth_provider is None:
+            if user is not None and password is not None:
+                self.auth_provider = PlainTextAuthProvider(username=user, password=password)
+            else:
+                logger.fatal("You must provide either a user/password pair or an auth_provider object")
+        else:
+            self.auth_provider = auth_provider
         # define execution profile for the cluster/session
         profile = ExecutionProfile(
             load_balancing_policy=DCAwareRoundRobinPolicy(),
@@ -136,25 +151,28 @@ class Database:
             logger.debug(f"Catched exception: {e}")
             return False
 
-
     def disconnect(self) -> bool:
         self.cluster.shutdown()
+        self.session = None
 
     def execute(
         self,
         query: str, 
         consistency_level = ConsistencyLevel.LOCAL_QUORUM
     ) -> dict:
-        resultset = self.session.execute(query)
         result_dict = {
             "action": query.split(" ")[0],
             "rows": []
         }
-        for row in resultset:
-            row_dict = {}
-            for i in range(len(resultset.column_names)):
-                row_dict[resultset.column_names[i]] = row[i]
-            result_dict["rows"].append(row_dict)
+        try:
+            resultset = self.session.execute(query)
+            for row in resultset:
+                row_dict = {}
+                for i in range(len(resultset.column_names)):
+                    row_dict[resultset.column_names[i]] = row[i]
+                result_dict["rows"].append(row_dict)
+        except Exception as e:
+            logger.error(e)
         return result_dict
 
     def get_keyspaces(self):
