@@ -1,11 +1,10 @@
 from os import name
-import cassandra
 from cassandra import ConsistencyLevel
 from cassandra import query
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT, Session
 from cassandra.policies import DCAwareRoundRobinPolicy, RetryPolicy
-from cassandra.query import tuple_factory, BatchStatement, BatchType
+from cassandra.query import SimpleStatement, tuple_factory, BatchStatement, BatchType
 import json
 import logging
 from ssl import SSLContext, PROTOCOL_TLSv1_2 , CERT_REQUIRED
@@ -157,15 +156,25 @@ class Database:
 
     def execute(
         self,
-        query: str, 
+        query,
+        fetch_size: int = 100,
+        paging_state = None, 
         consistency_level = ConsistencyLevel.LOCAL_QUORUM
     ) -> dict:
+        if type(query) is str:
+            query_text = query
+            query = SimpleStatement(query_text, fetch_size=fetch_size,consistency_level=consistency_level)
+        else:
+            query_text = query.query_string
         result_dict = {
-            "action": query.split(" ")[0],
+            "action": query_text.split(" ")[0],
             "rows": []
         }
         try:
-            resultset = self.session.execute(query)
+            if paging_state is not None:
+                resultset = self.session.execute(query, paging_state=paging_state)
+            else:
+                resultset = self.session.execute(query)
             for row in resultset:
                 row_dict = {}
                 for i in range(len(resultset.column_names)):
