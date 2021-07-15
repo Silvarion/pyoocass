@@ -65,6 +65,7 @@ class Database:
     ) -> None:
         # Initialize Attributes
         self.session = None
+        self.port = port
         # If SSL context is needed
         if cert is not None:
             self.ssl_context = SSLContext(PROTOCOL_TLSv1_2 )
@@ -98,6 +99,19 @@ class Database:
             execution_profiles={EXEC_PROFILE_DEFAULT: profile}
         )
         pass
+    
+    def __str__(self):
+        stringed = {
+            "nodes": self.nodes,
+            "port": self.port
+        }
+        if self.auth_provider is not None:
+            stringed["auth_provider"] = type(self.auth_provider)
+        if self.user is not None:
+            stringed["user"] = self.user
+        if self.cert is not None:
+            stringed["certificate"] = self.cert
+        return(stringed)
 
     def connect(
         self
