@@ -1,9 +1,12 @@
-import cassandra
+from os import name
 from cassandra import ConsistencyLevel
+from cassandra import query
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT, Session
 from cassandra.policies import DCAwareRoundRobinPolicy, RetryPolicy
-from cassandra.query import tuple_factory, BatchStatement, BatchType
+from cassandra.query import SimpleStatement, tuple_factory, BatchStatement, BatchType
+import json
+import logging
 from ssl import SSLContext, PROTOCOL_TLSv1_2 , CERT_REQUIRED
 import logging
 import sys
@@ -45,6 +48,8 @@ class CustomRetryPolicy(RetryPolicy):
             return self.RETHROW, None 
 
 class Database:
+    # Setup logging
+    logger = logging.getLogger(name="Database")
     # Attributes
     nodes: list
     user: str
@@ -64,6 +69,10 @@ class Database:
         retries = 5
     ) -> None:
         # Initialize Attributes
+        self.nodes = nodes
+        self.user = user
+        self.password = password
+        self.port = port
         self.session = None
         self.port = port
         # If SSL context is needed
@@ -113,15 +122,46 @@ class Database:
             stringed["certificate"] = self.cert
         return(stringed)
 
+    def __str__(self):
+        json_data = {
+            "nodes": self.nodes,
+            "port": self.port,
+            "user": self.user,
+            "session": None
+        }
+        if self.session is not None:
+            json_data["session"] = self.session
+            json_data["name"] = self.name
+            json_data["cql_version"] = self.cql_version
+            json_data["release_version"] = self.release_version
+            json_data["datacenter"] = self.datacenter
+            json_data["rack"] = self.rack
+            json_data["native_protocol_version"] = self.native_protocol_version
+        return(json_data)
+
     def connect(
         self
     ) -> bool:
+        # Setup logging
+        logger = logging.getLogger(name="Database::connect")
+        logger.setLevel(logging.DEBUG)
         try:
+            logger.debug("Entering try-except block")
             self.session = self.cluster.connect()
+            logger.debug(f"Session after connecting: {self.session}")
             if self.session is not None:
+                logger.debug("Session is not None")
+                result = self.execute(query="SELECT * FROM system.local",consistency_level=ConsistencyLevel.LOCAL_ONE)
+                logger.debug(result)
+                self.name = result["cluster_name"]
+                self.cql_version = result["cql_version"]
+                self.release_version = result["release_version"]
+                self.datacenter = result["datacenter"]
+                self.rack = result["rack"]
+                self.native_protocol_version = result["native_protocol_version"]
                 return True
         except Exception as e:
-            print(e)
+            logger.debug(f"Catched exception: {e}")
             return False
 
     def disconnect(self) -> bool:
@@ -130,15 +170,25 @@ class Database:
 
     def execute(
         self,
-        query: str, 
+        query,
+        fetch_size: int = 100,
+        paging_state = None, 
         consistency_level = ConsistencyLevel.LOCAL_QUORUM
     ) -> dict:
+        if type(query) is str:
+            query_text = query
+            query = SimpleStatement(query_text, fetch_size=fetch_size,consistency_level=consistency_level)
+        else:
+            query_text = query.query_string
         result_dict = {
-            "action": query.split(" ")[0],
+            "action": query_text.split(" ")[0],
             "rows": []
         }
         try:
-            resultset = self.session.execute(query)
+            if paging_state is not None:
+                resultset = self.session.execute(query, paging_state=paging_state)
+            else:
+                resultset = self.session.execute(query)
             for row in resultset:
                 row_dict = {}
                 for i in range(len(resultset.column_names)):
