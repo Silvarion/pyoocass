@@ -110,25 +110,17 @@ class Database:
         pass
     
     def __str__(self):
-        stringed = {
-            "nodes": self.nodes,
-            "port": self.port
-        }
-        if self.auth_provider is not None:
-            stringed["auth_provider"] = type(self.auth_provider)
-        if self.user is not None:
-            stringed["user"] = self.user
-        if self.cert is not None:
-            stringed["certificate"] = self.cert
-        return(stringed)
-
-    def __str__(self):
         json_data = {
             "nodes": self.nodes,
             "port": self.port,
-            "user": self.user,
             "session": None
         }
+        if self.auth_provider is not None:
+            json_data["auth_provider"] = type(self.auth_provider)
+        if self.user is not None:
+            json_data["user"] = self.user
+        if self.cert is not None:
+            json_data["certificate"] = self.cert
         if self.session is not None:
             json_data["session"] = self.session
             json_data["name"] = self.name
