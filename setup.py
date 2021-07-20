@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pyoocass", 
-    version="0.0.3",
+    version="0.0.4",
     author="Jesus Alejandro Sanchez Davila",
     author_email="jsanchez.consultant@gmail.com",
     description="Python Object-Orinted Cassandra interface",
