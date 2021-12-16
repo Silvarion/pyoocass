@@ -66,7 +66,8 @@ class Database:
         password: str = "",
         cert = None,
         auth_provider = None,
-        retries = 5
+        retries = 5,
+        timeout = 15
     ) -> None:
         # Initialize Attributes
         self.nodes = nodes
@@ -93,10 +94,10 @@ class Database:
         # define execution profile for the cluster/session
         profile = ExecutionProfile(
             load_balancing_policy=DCAwareRoundRobinPolicy(),
-            retry_policy=CustomRetryPolicy(RETRY_MAX_ATTEMPTS=5),
+            retry_policy=CustomRetryPolicy(RETRY_MAX_ATTEMPTS=retries),
             consistency_level=ConsistencyLevel.LOCAL_QUORUM,
             serial_consistency_level=ConsistencyLevel.LOCAL_SERIAL,
-            request_timeout=15,
+            request_timeout=timeout,
             row_factory=tuple_factory
         )
         self.cluster = Cluster(

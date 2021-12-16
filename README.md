@@ -16,7 +16,8 @@ This class represents the Database object, meaning a cluster or serverles servic
 | password       | str   | ""            | Password to connect (can be ommited if auth_provider is provided in the Constructor)     |
 | cert           | str   | None          | Path to certificate if SSL is required                                                   |
 | auth_provider  | Class | None          | An instance of any cassandra.auth classes or SigV4AuthProvider from cassandra_sigv4.auth |
-| retries        | int   | 5             | Internal retries value for improved                                                      |
+| retries        | int   | 5             | Internal retries value for improved reconnections policy                                 |
+| timeout        | int   | 15            | Internal retries value for custom timeout times in the policy                            |
  
 #### Methods
 `__init__`
